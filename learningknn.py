@@ -12,12 +12,12 @@ class Berita:
         self.emosi = emosi
         self.hoax = hoax
 
-
-def loadData(file, outputSet=[]):
+def loadData(file):
+    outputSet = []
     with open(file, 'r') as csvfile:
         lines = csv.reader(csvfile)
         dataset = list(lines)
-        for x in range(1, len(dataset) - 1):
+        for x in range(1, len(dataset)):
             hoax = 0
             if(dataset[x][5] == '?') :
                 hoax = -1
@@ -25,76 +25,124 @@ def loadData(file, outputSet=[]):
                 hoax = float(dataset[x][5])
             berita = Berita(dataset[x][0],float(dataset[x][1]),float(dataset[x][2]),float(dataset[x][3]),float(dataset[x][4]),hoax)
             outputSet.append(berita)
+    return outputSet
 
-
-def euclideanDistance(instance1, instance2, length):
+def euclideanDistance(berita1, berita2):
     distance = 0
-    for x in range(length):
-        distance += pow((instance1[x] - instance2[x]), 2)
+    distance += pow(berita1.like - berita2.like,2) + pow(berita1.provokasi - berita2.provokasi,2) + pow(berita1.komentar - berita2.komentar,2) + pow(berita1.emosi - berita2.emosi,2)
     return math.sqrt(distance)
 
+def fold_dataset(dataset, kfold) :
+    folded_dataset = []
+    folded_n_data = len(dataset) / kfold
+    for x in range(0, kfold):
+        folded_dataset.append(dataset[int(x * folded_n_data):int(((x + 1) * folded_n_data))])
+    return folded_dataset
 
-def getNeighbors(trainingSet, testInstance, k):
+def getNeighbors(dataset, berita, k):
     distances = []
-    length = len(testInstance) - 1
-    for x in range(len(trainingSet)):
-        dist = euclideanDistance(testInstance, trainingSet[x], length)
-        distances.append((trainingSet[x], dist))
+    for x in range(len(dataset)):
+        distance = euclideanDistance(berita, dataset[x])
+        distances.append((dataset[x], distance))
     distances.sort(key=operator.itemgetter(1))
     neighbors = []
     for x in range(k):
         neighbors.append(distances[x][0])
     return neighbors
 
-
-def getResponse(neighbors):
-    classVotes = {}
-    for x in range(len(neighbors)):
-        response = neighbors[x][-1]
-        if response in classVotes:
-            classVotes[response] += 1
+def classification(neighbors):
+    hoax = 0
+    not_hoax = 0
+    for neighbor in neighbors :
+        if neighbor.hoax == 1:
+            hoax += 1
         else:
-            classVotes[response] = 1
-    sortedVotes = sorted(classVotes.iteritems(), key=operator.itemgetter(1), reverse=True)
-    return sortedVotes[0][0]
+            not_hoax += 1
+    if hoax > not_hoax:
+        return float(1)
+    else:
+        return float(0)
 
+def fold_classification(fold_class) :
+    hoax = 0
+    not_hoax = 0
+    for x in fold_class:
+        if x == 1:
+            hoax += 1
+        else:
+            not_hoax += 1
+    if hoax > not_hoax:
+        return float(1)
+    else:
+        return float(0)
 
-def getAccuracy(testSet, predictions):
+def calculateAccuracy(dataset, predictions):
     correct = 0
-    for x in range(len(testSet)):
-        if testSet[x][-1] == predictions[x]:
+    for x in range(len(dataset)) :
+        print(dataset[x].id , " = " ,dataset[x].hoax, ", Predictions = ", predictions[dataset[x].id])
+        if dataset[x].hoax == predictions[dataset[x].id] :
             correct += 1
-    return (correct / float(len(testSet))) * 100.0
+    return (correct / float(len(dataset))) * 100.0
 
+def writeToCsv(name, data, predictions) :
+    file = open(name,'w')
+    with file :
+        writer = csv.writer(file)
+        writer.writerow(['Berita','Like','Provokasi','Komentar','Emosi','Hoax'])
+        for berita in data :
+            writer.writerow([berita.id,berita.like,berita.provokasi,berita.komentar,berita.emosi,predictions[berita.id]])
 
 def main():
+    datatraining = loadData('Datatraining.csv')
+    datatest = loadData('Datates.csv')
+    k_folds = 5
+    k_kind = [1,3,5,7,9]
+    folded_datatraining = fold_dataset(datatraining,k_folds)
+    #validasi biasa
+    '''for k in k_kind :
+        prediction = {}
+        for berita in datatraining :
+            neighbors = getNeighbors(datatraining,berita,k)
+            prediction[berita.id] = classification(neighbors)
+        print("K = ", k, ", Accuracy = ", calculateAccuracy(datatraining, prediction))
+'''
+    #validasi k_fold
+    for k in k_kind :
+        prediction = {}
+        fold_classes = {}
+        for k_fold in range(0, k_folds) :
+            for berita in folded_datatraining[k_fold] :
+                fold_classes[berita.id] = []
+                for x in range(0,k_folds) :
+                    if(x != k_fold) :
+                        neighbors = getNeighbors(folded_datatraining[x], berita, k)
+                        fold_classes[berita.id].append(classification(neighbors))
+                prediction[berita.id] = fold_classification(fold_classes[berita.id])
+        print("K = ", k, ", Accuracy = ",calculateAccuracy(datatraining, prediction))
+'''
+    #testing
+    #testing biasa
+    for k in k_kind:
+        prediction = {}
+        for berita in datatest:
+            neighbors = getNeighbors(datatraining, berita, k)
+            prediction[berita.id] = classification(neighbors)
+        name = 'Normal Testing K=' + str(k) + '.csv'
+        writeToCsv(name,datatest,prediction)
 
-    datatraining = []
-    datatest = []
-    loadData('Datatraining.csv',datatraining)
-    loadData('Datates.csv',datatest)
-    for x in datatraining :
-        print(x.komentar)
-    #
-    # # prepare data
-    # trainingSet = []
-    # testSet = []
-    # split = 0.67
-    # loadDataset('iris.data', split, trainingSet, testSet)
-    # print
-    # 'Train set: ' + repr(len(trainingSet))
-    # print
-    # 'Test set: ' + repr(len(testSet))
-    # # generate predictions
-    # predictions = []
-    # k = 3
-    # for x in range(len(testSet)):
-    #     neighbors = getNeighbors(trainingSet, testSet[x], k)
-    #     result = getResponse(neighbors)
-    #     predictions.append(result)
-    #     print('> predicted=' + repr(result) + ', actual=' + repr(testSet[x][-1]))
-    # accuracy = getAccuracy(testSet, predictions)
-    # print('Accuracy: ' + repr(accuracy) + '%')
-
-
+    #testing k_fold
+    for k in k_kind:
+        prediction = {}
+        fold_classes = {}
+        for k_fold in range(0, k_folds):
+            for berita in datatest:
+                fold_classes[berita.id] = []
+                for x in range(0, k_folds):
+                    if (x != k_fold):
+                        neighbors = getNeighbors(folded_datatraining[x], berita, k)
+                        fold_classes[berita.id].append(classification(neighbors))
+                prediction[berita.id] = fold_classification(fold_classes[berita.id])
+        name = 'K-Fold=5 Testing K=' + str(k) + '.csv'
+        writeToCsv(name, datatest, prediction)
+'''
 main()
