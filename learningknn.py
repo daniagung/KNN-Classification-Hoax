@@ -95,8 +95,8 @@ def writeToCsv(name, data, predictions) :
 def main():
     datatraining = loadData('Datatraining.csv')
     datatest = loadData('Datates.csv')
-    k_folds = 5
-    k_kind = [1,3,5,7,9]
+    k_folds = 4
+    k_kind = [63]
     folded_datatraining = fold_dataset(datatraining,k_folds)
     #validasi biasa
     '''for k in k_kind :
@@ -106,29 +106,29 @@ def main():
             prediction[berita.id] = classification(neighbors)
         print("K = ", k, ", Accuracy = ", calculateAccuracy(datatraining, prediction))
 '''
-    #validasi k_fold
-    for k in k_kind :
-        prediction = {}
-        fold_classes = {}
-        for k_fold in range(0, k_folds) :
-            for berita in folded_datatraining[k_fold] :
-                fold_classes[berita.id] = []
-                for x in range(0,k_folds) :
-                    if(x != k_fold) :
-                        neighbors = getNeighbors(folded_datatraining[x], berita, k)
-                        fold_classes[berita.id].append(classification(neighbors))
-                prediction[berita.id] = fold_classification(fold_classes[berita.id])
-        print("K = ", k, ", Accuracy = ",calculateAccuracy(datatraining, prediction))
-'''
+    # #validasi k_fold
+    # for k in k_kind :
+    #     prediction = {}
+    #     fold_classes = {}
+    #     for k_fold in range(0, k_folds) :
+    #         for berita in folded_datatraining[k_fold] :
+    #             fold_classes[berita.id] = []
+    #             for x in range(0,k_folds) :
+    #                 if(x != k_fold) :
+    #                     neighbors = getNeighbors(folded_datatraining[x], berita, k)
+    #                     fold_classes[berita.id].append(classification(neighbors))
+    #             prediction[berita.id] = fold_classification(fold_classes[berita.id])
+    #     print("K = ", k, ", Accuracy = ",calculateAccuracy(datatraining, prediction))
+
     #testing
     #testing biasa
-    for k in k_kind:
-        prediction = {}
-        for berita in datatest:
-            neighbors = getNeighbors(datatraining, berita, k)
-            prediction[berita.id] = classification(neighbors)
-        name = 'Normal Testing K=' + str(k) + '.csv'
-        writeToCsv(name,datatest,prediction)
+    # for k in k_kind:
+    #     prediction = {}
+    #     for berita in datatest:
+    #         neighbors = getNeighbors(datatraining, berita, k)
+    #         prediction[berita.id] = classification(neighbors)
+    #     name = 'Normal Testing K=' + str(k) + '.csv'
+    #     writeToCsv(name,datatest,prediction)
 
     #testing k_fold
     for k in k_kind:
@@ -142,7 +142,10 @@ def main():
                         neighbors = getNeighbors(folded_datatraining[x], berita, k)
                         fold_classes[berita.id].append(classification(neighbors))
                 prediction[berita.id] = fold_classification(fold_classes[berita.id])
-        name = 'K-Fold=5 Testing K=' + str(k) + '.csv'
+        name = 'K-Fold=4 Testing K=' + str(k) + '.csv'
+        print("K = ", k)
+        for key in prediction :
+            print(key, ' = ' ,prediction[key])
         writeToCsv(name, datatest, prediction)
-'''
+
 main()
